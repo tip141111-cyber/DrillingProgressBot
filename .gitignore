@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 chats.json
 updated/
+.env.example
