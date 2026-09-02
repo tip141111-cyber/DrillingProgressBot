@@ -34,6 +34,9 @@ BUTTON_DOWNLOAD = "Скачать актуальную"
 BUTTON_AFU_14 = "АФУ 1/4"
 BUTTON_AFU_3 = "АФУ 3"
 BUTTON_BOTH_LINES = "Обе линейки"
+FOLLOW_UP_DELAY_SECONDS = 6 * 60
+DAILY_PROMPT_TEXT = "скока?"
+FOLLOW_UP_PROMPT_TEXT = "ты мозга мне не еби, я спрашиваю скока?"
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [[BUTTON_RECORD, BUTTON_CORRECT], [BUTTON_DOWNLOAD, BUTTON_CANCEL]],
     resize_keyboard=True,
@@ -445,9 +448,38 @@ async def daily_prompt(context: ContextTypes.DEFAULT_TYPE) -> None:
         start_session(chat_id, context, "add")
         await context.bot.send_message(
             chat_id=chat_id,
-            text="Время ежедневного отчета по отверстиям.\n" + build_line_choice("add"),
+            text=DAILY_PROMPT_TEXT + "\n" + build_line_choice("add"),
             reply_markup=LINE_KEYBOARD,
         )
+        context.job_queue.run_once(
+            missed_daily_prompt_follow_up,
+            when=FOLLOW_UP_DELAY_SECONDS,
+            data={"chat_id": chat_id},
+            name=f"missed_daily_prompt_follow_up_{chat_id}_{today_key()}",
+        )
+
+
+async def missed_daily_prompt_follow_up(context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = context.job.data["chat_id"]
+    if not is_admin_chat(chat_id):
+        return
+    if has_submitted_today(chat_id):
+        return
+    session = get_session(chat_id, context)
+    if not session:
+        session = start_session(chat_id, context, "add")
+    if session.get("awaiting_line"):
+        text = FOLLOW_UP_PROMPT_TEXT + "\n" + build_line_choice("add")
+        reply_markup = LINE_KEYBOARD
+    else:
+        questions = session.get("questions") or QUESTIONS
+        text = FOLLOW_UP_PROMPT_TEXT + "\n" + build_question(session["step"], session.get("mode", "add"), questions)
+        reply_markup = MAIN_KEYBOARD
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_markup=reply_markup,
+    )
 
 
 def main() -> None:
