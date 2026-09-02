@@ -5,3 +5,5 @@ __pycache__/
 chats.json
 updated/
 .env.example
+
+data/uchet_bureniya_otverstiy.xlsx
