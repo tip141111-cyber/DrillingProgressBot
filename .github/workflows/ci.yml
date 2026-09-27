@@ -9,10 +9,16 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Ensure runtime secrets are not committed
+        run: |
+          test ! -f .env
+          test ! -f chats.json
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,6 +34,18 @@ jobs:
         run: |
           python -m compileall .
 
+      - name: Check bot module can be imported
+        run: |
+          python -c "import bot; print('bot import ok')"
+
+      - name: Validate Docker Compose config
+        run: |
+          docker compose config
+
       - name: Build Docker image
         run: |
           docker build -t drilling-progress-bot:test .
+
+      - name: Smoke check Docker image
+        run: |
+          docker run --rm drilling-progress-bot:test python -c "import bot; print('container import ok')"
